@@ -1,0 +1,22 @@
+.topbar {
+  display: flex; align-items: center; gap: 12px;
+  height: 46px; padding: 0 12px;
+  background: var(--bg-alt); border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.brand { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+.brand-logo {
+  width: 26px; height: 26px; border-radius: 6px; background: linear-gradient(135deg,#1f6feb,#bc8cff);
+  display: inline-flex; align-items: center; justify-content: center; font-size: 15px; color: #fff;
+}
+.brand-name { font-weight: 700; letter-spacing: .2px; }
+.project-picker { display: flex; align-items: center; gap: 4px; }
+.project-picker select { max-width: 220px; }
+.icon-btn {
+  background: transparent; border: 1px solid transparent; color: var(--text-dim);
+  width: 28px; height: 28px; border-radius: 6px; font-size: 14px;
+}
+.icon-btn:hover { background: var(--bg-3); color: var(--text); }
+.icon-btn.danger:hover { color: var(--red); }
+.top-actions { display: flex; align-items: center; gap: 8px; }
+.avatar { width: 20px; height: 20px; border-radius: 50%; vertical-align: middle; }
