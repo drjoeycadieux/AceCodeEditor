@@ -1,0 +1,27 @@
+{
+  "name": "ace-code-editor",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Ace Code Editor - an in-browser code editor & sandbox with GitHub integration, built with React",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@octokit/rest": "^20.0.2",
+    "jszip": "^3.10.1",
+    "marked": "^11.1.1",
+    "prettier": "^3.9.10",
+    "react": "^18.2.0",
+    "react-ace": "^15.0.0",
+    "react-dom": "^18.2.0",
+    "zustand": "^4.5.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.2.1",
+    "ace-builds": "^1.32.2",
+    "vite": "^5.0.12"
+  }
+}
