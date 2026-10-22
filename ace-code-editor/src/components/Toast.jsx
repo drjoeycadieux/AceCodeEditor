@@ -1,10 +1,10 @@
 import React from 'react';
-import ReactDOM from 'react-dom';
+import { createRoot } from 'react-dom/client';
 
 const container = document.createElement('div');
 container.className = 'toast-container';
 document.body.appendChild(container);
-const root = ReactDOM.createRoot(container);
+const root = createRoot(container);
 
 let toasts = [];
 let idc = 0;

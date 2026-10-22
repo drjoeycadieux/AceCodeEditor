@@ -28,8 +28,8 @@ function normalize(p) {
   return p.replace(/^\.?\//, '');
 }
 
-// Very small ES-module bundler: resolves import/export statements between
-// project files by rewriting them into an IIFE registry.
+// Very small ES-module bundler: rewrites each project file into a module
+// function registered in a tiny runtime, then executes the entry module.
 function bundleModule(entryPath, files) {
   const order = [];
   const seen = new Set();
@@ -45,12 +45,27 @@ function bundleModule(entryPath, files) {
   }
   collect(entryPath);
 
-  let code = '';
+  let code = [
+    'const __modules = {}, __loaded = {};',
+    'const __require = (p) => {',
+    '  if (__loaded[p]) return __modules[p];',
+    '  if (!(p in __modules)) throw new Error("Module not found: " + p);',
+    '  const m = { exports: {} };',
+    '  __loaded[p] = true;',
+    '  __modules[p](m, m.exports, __require);',
+    '  __modules[p] = m.exports;',
+    '  return m.exports;',
+    '};',
+  ].join('\n');
   for (const path of order) {
     const file = files.find((f) => f.path === path);
     if (!file) continue;
-    code += transformFile(path, file.content, files) + '\n;\n';
+    code +=
+      `\n__modules[${JSON.stringify(path)}] = function(module, exports, require) {\n` +
+      transformFile(path, file.content, files) +
+      `\n};\n`;
   }
+  code += `\n__require(${JSON.stringify(entryPath)});\n`;
   return code;
 }
 
@@ -88,10 +103,72 @@ function transformFile(path, content, files) {
   if (/\.json$/i.test(path)) {
     return `/* json: ${path} */`;
   }
-  // Rewrite relative imports to be stripped (modules are concatenated in dep order).
-  let js = content
-    .replace(/(\bimport\b[^'"\n]*from\s*)['"](\.[^'"]*|\/[^'"]*)['"]/g, '$1"__local__"')
-    .replace(/(\bimport\s*)['"](\.[^'"]*|\/[^'"]*)['"]/g, '$1"__local__"');
+
+  let js = content;
+
+  // Rewrite side-effect-only imports (e.g. CSS) first, so the broader
+  // from-import rewrite below cannot accidentally swallow them.
+  js = js.replace(
+    /(?:^|\n)[ \t]*import\s+['"](\.[^'"]*|\/[^'"]*)['"]\s*;?/g,
+    (m, spec) => `\nrequire(${JSON.stringify(resolveImport(path, spec))});`
+  );
+  // Rewrite remaining import declarations into require() calls.
+  // ESM `as` aliases become destructuring `:` aliases.
+  const destructure = (clause) =>
+    clause.replace(/([{,]\s*[\w$]+)\s+as\s+([\w$]+)/g, '$1: $2');
+  js = js.replace(
+    /(?:^|\n)[ \t]*import\s+([\s\S]*?)\s+from\s+['"](\.[^'"]*|\/[^'"]*)['"]\s*;?/g,
+    (m, clause, spec) => {
+      const req = `require(${JSON.stringify(resolveImport(path, spec))})`;
+      const c = clause.trim();
+      const ns = c.match(/^\*\s+as\s+([\w$]+)$/);
+      if (ns) return `\nconst ${ns[1]} = ${req};`;
+      const def = c.match(/^([\w$]+)\s*,/);
+      if (def) {
+        const rest = c.slice(def[0].length).trim();
+        let out = `const ${def[1]} = ${req}.default;`;
+        if (rest.startsWith('{')) out += `\nconst ${destructure(rest)} = ${req};`;
+        else if (/^\*\s+as\s+[\w$]+$/.test(rest)) {
+          out += `\nconst ${rest.replace(/^\*\s+as\s+/, '')} = ${req};`;
+        }
+        return '\n' + out;
+      }
+      if (c.startsWith('{')) return `\nconst ${destructure(c)} = ${req};`;
+      return `\nconst ${c} = ${req}.default;`;
+    }
+  );
+
+  // Rewrite named exports: strip the `export` keyword and register the
+  // binding on the module's exports object. Registrations are appended at
+  // the end of the function body, which is safe for hoisted function
+  // declarations and for const/let/class bindings that run in order.
+  const exported = [];
+  js = js.replace(
+    /(?:^|\n)[ \t]*export\s+(function|const|let|var|class)\s+([A-Za-z_$][\w$]*)/g,
+    (m, kw, name) => {
+      exported.push(name);
+      return m.replace(/export\s+/, '');
+    }
+  );
+  // export { a, b as c } → exports.a = a; exports.c = b;
+  js = js.replace(/(?:^|\n)[ \t]*export\s*\{([^}]*)\}\s*;?/g, (m, body) => {
+    let out = '';
+    for (const part of body.split(',')) {
+      if (!part.trim()) continue;
+      const [orig, alias] = part.split(/\s+as\s+/);
+      const from = orig.trim();
+      const to = alias ? alias.trim() : from;
+      out += `\nexports[${JSON.stringify(to)}] = ${from};`;
+    }
+    return out;
+  });
+  // export default <anything> → exports.default = <anything>
+  js = js.replace(/(?:^|\n)[ \t]*export\s+default\s+/g, '\nexports.default = ');
+  // Fallback: strip any remaining `export` keyword so leftover declarations
+  // (e.g. destructured const exports) don't produce a syntax error.
+  js = js.replace(/(?:^|\n)[ \t]*export\s+/g, '\n');
+
+  for (const name of exported) js += `\nexports[${JSON.stringify(name)}] = ${name};`;
   return js;
 }
 
@@ -122,7 +199,10 @@ export function buildPreviewDoc(files) {
   html = html.replace(
     /<script(?![^>]*src)([^>]*)>([\s\S]*?)<\/script>/gi,
     (full, attrs, body) => {
-      if (/type=["'](?!module)[a-z]+["']/i.test(attrs)) return full; // leave worker etc.
+      // Never wrap scripts with a type attribute: module scripts can contain
+      // top-level export declarations, which are invalid inside a try block,
+      // and non-JS types (worker, text/babel, …) should be left untouched.
+      if (/type=["'][a-z]+["']/i.test(attrs)) return full;
       return `<script${attrs}>\ntry{\n${body}\n}catch(e){console.error(e);}</script>`;
     }
   );
@@ -137,10 +217,10 @@ export function buildPreviewDoc(files) {
       d.style.cssText='position:fixed;left:0;right:0;bottom:0;max-height:40%;overflow:auto;background:#2d1215;color:#ffb4ab;font:12px monospace;padding:8px 12px;z-index:99999;border-top:2px solid #f85149';
       document.body&&document.body.appendChild(d);}
     d.innerHTML+='<div>✖ '+String(msg).replace(/</g,'&lt;')+'</div>';
+    window.parent&&window.parent.postMessage({source:'ace-preview',msg:String(msg)},'*');
   }
   window.addEventListener('error',function(e){report(e.message+' ('+(e.filename||'')+':'+(e.lineno||0)+')');});
   window.addEventListener('unhandledrejection',function(e){report('Unhandled promise rejection: '+e.reason);});
-  window.parent&&window.parent.postMessage({source:'ace-preview','__preview_error__':true},'*');
   document.addEventListener('DOMContentLoaded',function(){
     var b=document.querySelector('a[target="_blank"]');void b;
   });

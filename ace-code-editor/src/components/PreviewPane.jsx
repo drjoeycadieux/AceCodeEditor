@@ -128,7 +128,9 @@ export default function PreviewPane() {
           {consoleLogs.length === 0 ? (
             <span className="dim">No runtime errors. Output appears here.</span>
           ) : (
-            consoleLogs.map((l, i) => <div key={i} className="log-err">✖ Runtime error reported by preview</div>)
+            consoleLogs.map((l, i) => (
+              <div key={i} className="log-err">✖ {l.msg || 'Runtime error reported by preview'}</div>
+            ))
           )}
         </div>
       </div>

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import AceEditor from 'react-ace';
+import ace from 'ace-builds/src-noconflict/ace';
 // Core modes & features (bundled locally via ace-builds)
 import 'ace-builds/src-noconflict/mode-javascript';
 import 'ace-builds/src-noconflict/mode-jsx';
@@ -48,6 +49,61 @@ import 'ace-builds/src-noconflict/ext-searchbox';
 import 'ace-builds/src-noconflict/ext-settings_menu';
 import 'ace-builds/src-noconflict/keybinding-vscode';
 import 'ace-builds/src-noconflict/worker-javascript';
+// Snippet modules for the supported languages. Registering them at build time
+// prevents ace from trying to fetch snippets/<lang>.js dynamically (404).
+import 'ace-builds/src-noconflict/snippets/javascript';
+import 'ace-builds/src-noconflict/snippets/jsx';
+import 'ace-builds/src-noconflict/snippets/typescript';
+import 'ace-builds/src-noconflict/snippets/tsx';
+import 'ace-builds/src-noconflict/snippets/json';
+import 'ace-builds/src-noconflict/snippets/html';
+import 'ace-builds/src-noconflict/snippets/css';
+import 'ace-builds/src-noconflict/snippets/scss';
+import 'ace-builds/src-noconflict/snippets/less';
+import 'ace-builds/src-noconflict/snippets/markdown';
+import 'ace-builds/src-noconflict/snippets/python';
+import 'ace-builds/src-noconflict/snippets/ruby';
+import 'ace-builds/src-noconflict/snippets/golang';
+import 'ace-builds/src-noconflict/snippets/rust';
+import 'ace-builds/src-noconflict/snippets/java';
+import 'ace-builds/src-noconflict/snippets/c_cpp';
+import 'ace-builds/src-noconflict/snippets/csharp';
+import 'ace-builds/src-noconflict/snippets/php';
+import 'ace-builds/src-noconflict/snippets/swift';
+import 'ace-builds/src-noconflict/snippets/kotlin';
+import 'ace-builds/src-noconflict/snippets/sql';
+import 'ace-builds/src-noconflict/snippets/sh';
+import 'ace-builds/src-noconflict/snippets/yaml';
+import 'ace-builds/src-noconflict/snippets/xml';
+import 'ace-builds/src-noconflict/snippets/svg';
+import 'ace-builds/src-noconflict/snippets/text';
+import 'ace-builds/src-noconflict/snippets/ini';
+import 'ace-builds/src-noconflict/snippets/dockerfile';
+import 'ace-builds/src-noconflict/snippets/powershell';
+import 'ace-builds/src-noconflict/snippets/lua';
+import 'ace-builds/src-noconflict/snippets/perl';
+import 'ace-builds/src-noconflict/snippets/r';
+import 'ace-builds/src-noconflict/snippets/scala';
+import 'ace-builds/src-noconflict/snippets/handlebars';
+
+// Worker scripts are emitted as versioned assets by Vite; register them with
+// ace so it doesn't try to fetch worker-*.js from an unconfigured base path.
+import jsWorkerUrl from 'ace-builds/src-noconflict/worker-javascript.js?url';
+import cssWorkerUrl from 'ace-builds/src-noconflict/worker-css.js?url';
+import htmlWorkerUrl from 'ace-builds/src-noconflict/worker-html.js?url';
+import jsonWorkerUrl from 'ace-builds/src-noconflict/worker-json.js?url';
+import xmlWorkerUrl from 'ace-builds/src-noconflict/worker-xml.js?url';
+import yamlWorkerUrl from 'ace-builds/src-noconflict/worker-yaml.js?url';
+import phpWorkerUrl from 'ace-builds/src-noconflict/worker-php.js?url';
+import luaWorkerUrl from 'ace-builds/src-noconflict/worker-lua.js?url';
+ace.config.setModuleUrl('ace/mode/javascript_worker', jsWorkerUrl);
+ace.config.setModuleUrl('ace/mode/css_worker', cssWorkerUrl);
+ace.config.setModuleUrl('ace/mode/html_worker', htmlWorkerUrl);
+ace.config.setModuleUrl('ace/mode/json_worker', jsonWorkerUrl);
+ace.config.setModuleUrl('ace/mode/xml_worker', xmlWorkerUrl);
+ace.config.setModuleUrl('ace/mode/yaml_worker', yamlWorkerUrl);
+ace.config.setModuleUrl('ace/mode/php_worker', phpWorkerUrl);
+ace.config.setModuleUrl('ace/mode/lua_worker', luaWorkerUrl);
 
 import { useStore, useEditorStore } from '../store/store.js';
 import { getFileInfo } from '../utils/languages.js';
